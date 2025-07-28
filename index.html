@@ -248,6 +248,17 @@ function updateSession(){
   else session = "New York";
   document.getElementById('session-info').innerText = `Sesi Aktif: ${session} | Waktu UTC: ${hour}:00`;
 }
+// copy to clipboard function
+function copyText(id) {
+      const text = document.getElementById(id).innerText;
+      navigator.clipboard.writeText(text)
+        .then(() => {
+          alert('Teks berhasil dicopy!');
+        })
+        .catch(err => {
+          alert('Gagal menyalin teks: ' + err);
+        });
+    }
 
 // Notifikasi suara (simulasi)
 function playAlert(){
