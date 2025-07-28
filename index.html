@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ultimate Trading Toolkit</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+  body { font-family: Arial, sans-serif; background: #f4f4f4; color: #222; margin: 0; padding: 0; transition: 0.3s; }
+  .dark-mode { background: #121212; color: #eee; }
+  .container { max-width: 1200px; margin: auto; padding: 15px; }
+  h2 { text-align: center; }
+  .header { display: flex; justify-content: space-between; align-items: center; padding: 10px; background: #007bff; color: white; }
+  .header select, .header button { padding: 5px; }
+  .calc, .chart-container, .session, .signal { background: #fff; border-radius: 8px; padding: 15px; margin-top: 15px; }
+  .dark-mode .calc, .dark-mode .chart-container, .dark-mode .session, .dark-mode .signal { background: #1e1e1e; }
+  input, select { width: 90%; padding: 8px; margin: 5px 0; border-radius: 4px; border: 1px solid #ccc; }
+  button { padding: 10px; margin-top: 10px; border: none; border-radius: 5px; cursor: pointer; }
+  #calculate { background: #007bff; color: #fff; }
+  .result { margin-top: 15px; background: #e9ecef; padding: 12px; border-radius: 5px; }
+  .dark-mode .result { background: #333; }
+  canvas { background: #fff; border-radius: 8px; }
+  .dark-mode canvas { background: #222; }
+  .dark-toggle { background: #fff; border-radius: 20px; padding: 5px; cursor: pointer; }
+</style>
+</head>
+<body>
+<div class="header">
+  <div>
+    <label for="pair">Pilih Pair:</label>
+    <select id="pair" onchange="saveSettings()">
+      <option value="EURUSD">EUR/USD</option>
+      <option value="USDJPY">USD/JPY</option>
+      <option value="XAUUSD">XAU/USD (Gold)</option>
+      <option value="BTCUSD">BTC/USD</option>
+    </select>
+  </div>
+  <div>
+      <button class="dark-toggle" onclick="toggleDark()"><i class="fas fa-moon"></i></button>
+    </div>
+</div>
+
+<div>
+  <span>Harga Live:</span>
+  <div id="tv-widget" style="display:flex; justify-content: center;">
+    <!-- TradingView Widget -->
+    <iframe id="tv-iframe" src="https://s.tradingview.com/widgetembed/?symbol=EURUSD&interval=1&hide_side_toolbar=true&style=2&locale=id&toolbar_bg=f1f3f6" width="400" height="200" frameborder="0"></iframe>
+  </div>
+</div>
+<div class="container">
+  <h2>Ultimate Trading Toolkit</h2>
+
+  <!-- Kalkulator -->
+  <div class="calc">
+    <h3>Kalkulator SL, TP & Lot</h3>
+    <label>Modal ($):</label><input type="number" id="modal" value="10">
+    <label>Risiko (%):</label><input type="number" id="risiko" value="2">
+    <label>Entry Price:</label><input type="number" id="entry" value="1.1000">
+    <label>ATR:</label><input type="number" id="atr" value="10">
+    <label>Multiplier ATR (SL):</label><input type="number" id="multiplier" value="2">
+    <label>RRR:</label><input type="number" id="rrr" value="2">
+    <label>Arah:</label>
+    <select id="arah">
+      <option value="BUY">BUY</option>
+      <option value="SELL">SELL</option>
+    </select>
+    <button id="calculate" onclick="hitung()">Hitung</button>
+    <div class="result" id="result"></div>
+  </div>
+
+  <!-- Grafik -->
+  <div class="chart-container">
+    <h3>Grafik Entry, SL & TP</h3>
+    <canvas id="tradeChart" height="200"></canvas>
+  </div>
+
+  <!-- Sesi Market -->
+  <div class="session">
+    <h3>Sesi Market</h3>
+    <p id="session-info">Loading...</p>
+  </div>
+
+  <!-- Sinyal Trend -->
+  <!-- <div class="signal">
+    <h3>Sinyal Trend</h3>
+    <p id="trend-signal">Analisa sedang dimuat...</p>
+  </div>
+</div> -->
+<div class="info">
+  <p><b>Keterangan:</b></p>
+  <ul>
+    <li><b>Modal:</b> Saldo akun dalam USD.</li>
+    <li><b>Risiko:</b> Persentase kerugian maksimal per transaksi.</li>
+    <li><b>Entry:</b> Harga masuk rencana trading.</li>
+    <li><b>ATR:</b> Ambil dari indikator ATR untuk volatilitas.</li>
+    <li><b>Multiplier:</b> Pengali ATR untuk menentukan jarak SL.</li>
+    <li><b>RRR:</b> Risk Reward Ratio, contoh 2 berarti TP = 2× SL.</li>
+    <li><b>Pip Value:</b> Forex=10, Emas=1, BTC=1.</li>
+    <li><b>Arah:</b> Tentukan BUY/SELL sesuai trend (analisa di TF besar).</li>
+    <li>Gunakan TF besar (H1/H4) untuk lihat trend utama (EMA 50 vs EMA 200).</li>
+    <li>BUY jika EMA50 > EMA200, SELL jika EMA50 < EMA200.</li>
+    <li>Masuk di pullback, jangan kejar harga di puncak.</li>
+    <li>Jangan risiko lebih dari 2% per trade untuk modal kecil.</li>
+  </ul>
+</div>
+
+<!-- Notifikasi Audio -->
+<audio id="alertSound">
+  <source src="https://www.soundjay.com/button/beep-07.wav" type="audio/wav">
+</audio>
+
+<script>
+let dark = true;
+let chart;
+let factor = 0.0001;
+let pipValue = 10;
+
+// Load saved settings
+window.onload = function(){
+  if(localStorage.getItem('settings')){
+    let s = JSON.parse(localStorage.getItem('settings'));
+    document.getElementById('modal').value = s.modal;
+    document.getElementById('risiko').value = s.risiko;
+    document.getElementById('entry').value = s.entry;
+    document.getElementById('pair').value = s.pair;
+    if(s.dark) document.body.classList.add('dark-mode');
+    updateTradingView(s.pair);
+    setInstrument();
+  }
+  updateSession();
+  setInterval(updateSession, 60000);
+}
+
+// Save settings
+function saveSettings(){
+  localStorage.setItem('settings', JSON.stringify({
+    modal: document.getElementById('modal').value,
+    risiko: document.getElementById('risiko').value,
+    entry: document.getElementById('entry').value,
+    pair: document.getElementById('pair').value,
+    dark: document.body.classList.contains('dark-mode')
+  }));
+  updateTradingView(document.getElementById('pair').value);
+  setInstrument();
+}
+
+function toggleDark(){
+  document.body.classList.toggle('dark-mode');
+  saveSettings();
+}
+
+// Update TradingView Widget
+function updateTradingView(symbol){
+  document.getElementById('tv-iframe').src =
+    `https://s.tradingview.com/widgetembed/?symbol=${symbol}&interval=1&hide_side_toolbar=true&style=2&locale=id&toolbar_bg=f1f3f6`;
+}
+
+// Instrument setup
+function setInstrument(){
+  let pair = document.getElementById('pair').value;
+  if(pair === "EURUSD") { factor = 0.0001; pipValue = 10; }
+  if(pair === "USDJPY") { factor = 0.01; pipValue = 9.09; }
+  if(pair === "XAUUSD") { factor = 0.1; pipValue = 1; }
+  if(pair === "BTCUSD") { factor = 1; pipValue = 1; }
+}
+
+// Kalkulasi
+function hitung(){
+  let modal = parseFloat(document.getElementById('modal').value);
+  let risiko = parseFloat(document.getElementById('risiko').value);
+  let entry = parseFloat(document.getElementById('entry').value);
+  let atr = parseFloat(document.getElementById('atr').value);
+  let multiplier = parseFloat(document.getElementById('multiplier').value);
+  let rrr = parseFloat(document.getElementById('rrr').value);
+  let arah = document.getElementById('arah').value;
+
+  let sl_distance = atr * multiplier;
+  let tp_distance = sl_distance * rrr;
+  let sl_price, tp_price;
+
+  if(arah === "BUY"){
+    sl_price = entry - sl_distance;
+    tp_price = entry + tp_distance;
+  } else {
+    sl_price = entry + sl_distance;
+    tp_price = entry - tp_distance;
+  }
+
+  let risiko_usd = modal * (risiko / 100);
+  let lot = risiko_usd / (sl_distance * pipValue);
+
+  let sl_pips = sl_distance / factor;
+  let tp_pips = tp_distance / factor;
+
+  document.getElementById('result').innerHTML = `
+  <div style="display:flex; gap:10px; align-items:center;">
+        <label>Entry:</label>
+        <p style="width:fit-content; margin:0;" id="entry">${entry}</p>
+        <button style="display:flex; width:fit-content; align-items:flex-start; background-color:blue; color:white; border:none; padding:5px; cursor:pointer; margin-top:0;" onclick="copyText('entry')">Copy Entry</button>
+    </div>
+    <div style="display:flex; gap:10px;flex-direction: column; margin: 10px 0;">
+        <label>Stop Loss:</label>
+        <p style="width:fit-content; margin:0;" id="sl_price">${sl_price.toFixed(2)}</p>
+        <p style="margin:0;">Jarak: ${sl_distance} pts / ${sl_pips.toFixed(1)} pips</p>
+        <button style="display:flex; width:fit-content; align-items:flex-start; background-color:blue; color:white; border:none; padding:5px; cursor:pointer; margin-top:0;" onclick="copyText('sl_price')">Copy SL</button>
+    </div>
+    <div style="display:flex; gap:10px; flex-direction: column; margin: 10px 0;">
+        <label>Take Profit:</label>
+        <p style="width:fit-content; margin:0;" id="tp_price">${tp_price.toFixed(2)}</p>
+        <p style="margin:0;">Jarak: ${tp_distance} pts / ${tp_pips.toFixed(1)} pips</p>
+        <button style="display:flex; width:fit-content; align-items:flex-start; background-color:blue; color:white; border:none; padding:5px; cursor:pointer; margin-top:0;" onclick="copyText('tp_price')">Copy TP</button>
+    </div>
+    <p>Lot: ${lot.toFixed(5)}</p>
+    <p>Risiko: $${risiko_usd.toFixed(2)}</p>
+  `;
+
+  drawChart(entry, sl_price, tp_price);
+  saveSettings();
+}
+
+// Chart.js untuk Entry-SL-TP
+function drawChart(entry, sl, tp){
+  const ctx = document.getElementById('tradeChart').getContext('2d');
+  if(chart) chart.destroy();
+  chart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: ['SL', 'Entry', 'TP'],
+      datasets: [{
+        label: 'Harga',
+        data: [sl, entry, tp],
+        borderColor: 'blue',
+        backgroundColor: 'rgba(0,123,255,0.2)',
+        fill: false
+      }]
+    }
+  });
+}
+
+// Info sesi market
+function updateSession(){
+  let now = new Date();
+  let hour = now.getUTCHours();
+  let session = "Tutup";
+  if(hour >= 0 && hour < 8) session = "Tokyo";
+  else if(hour >= 8 && hour < 16) session = "London";
+  else session = "New York";
+  document.getElementById('session-info').innerText = `Sesi Aktif: ${session} | Waktu UTC: ${hour}:00`;
+}
+
+// Notifikasi suara (simulasi)
+function playAlert(){
+  document.getElementById('alertSound').play();
+}
+</script>
+</body>
+</html>
