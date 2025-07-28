@@ -113,8 +113,8 @@
 <script>
 let dark = true;
 let chart;
-let factor = 0.0001;
-let pipValue = 10;
+let factor;
+let pipValue;
 
 // Load saved settings
 window.onload = function(){
@@ -166,32 +166,38 @@ function setInstrument(){
 }
 
 // Kalkulasi
-function hitung(){
-  let modal = parseFloat(document.getElementById('modal').value);
-  let risiko = parseFloat(document.getElementById('risiko').value);
-  let entry = parseFloat(document.getElementById('entry').value);
-  let atr = parseFloat(document.getElementById('atr').value);
-  let multiplier = parseFloat(document.getElementById('multiplier').value);
-  let rrr = parseFloat(document.getElementById('rrr').value);
-  let arah = document.getElementById('arah').value;
+function hitung() {
+      const modal = parseFloat(document.getElementById("modal").value);
+      const riskPercent = parseFloat(document.getElementById("risiko").value);
+      const entry = parseFloat(document.getElementById("entry").value);
+      const atr = parseFloat(document.getElementById("atr").value);
+      const multiplier = parseFloat(document.getElementById("multiplier").value);
+      const rrr = parseFloat(document.getElementById("rrr").value);
+      const arah = document.getElementById("arah").value;
 
-  let sl_distance = atr * multiplier;
-  let tp_distance = sl_distance * rrr;
-  let sl_price, tp_price;
+      // 1 pip = 0.0001 (misal EURUSD), pip value = $10 per 1 lot
+      const pipSize = 0.0001;
+      const pipValuePerLot = 10;
 
-  if(arah === "BUY"){
-    sl_price = entry - sl_distance;
-    tp_price = entry + tp_distance;
-  } else {
-    sl_price = entry + sl_distance;
-    tp_price = entry - tp_distance;
-  }
+      const riskDollar = modal * (riskPercent / 100); // berapa uang yg mau dirisikokan
+      const slDistance = atr * multiplier;
+      const tpDistance = slDistance * rrr;
 
-  let risiko_usd = modal * (risiko / 100);
-  let lot = risiko_usd / (sl_distance * pipValue);
+      let sl, tp;
 
-  let sl_pips = sl_distance / factor;
-  let tp_pips = tp_distance / factor;
+      if (arah === "buy") {
+        sl = entry - slDistance;
+        tp = entry + tpDistance;
+      } else {
+        sl = entry + slDistance;
+        tp = entry - tpDistance;
+      }
+
+      // jumlah pip dari SL
+      const pipCount = slDistance / pipSize;
+
+      // hitung lot
+      const lot = riskDollar / (pipCount * pipValuePerLot);
 
   document.getElementById('result').innerHTML = `
   <div style="display:flex; gap:10px; align-items:center;">
@@ -201,21 +207,21 @@ function hitung(){
     </div>
     <div style="display:flex; gap:10px;flex-direction: column; margin: 10px 0;">
         <label>Stop Loss:</label>
-        <p style="width:fit-content; margin:0;" id="sl_price">${sl_price}</p>
-        <p style="margin:0;">Jarak: ${sl_distance} pts / ${sl_pips.toFixed(1)} pips</p>
+        <p style="width:fit-content; margin:0;" id="sl_price">${sl.toFixed(5)}</p>
+        <p style="margin:0;">Jarak: ${slDistance} pts</p>
         <button style="display:flex; width:fit-content; align-items:flex-start; background-color:blue; color:white; border:none; padding:5px; cursor:pointer; margin-top:0;" onclick="copyText('sl_price')">Copy SL</button>
     </div>
     <div style="display:flex; gap:10px; flex-direction: column; margin: 10px 0;">
         <label>Take Profit:</label>
-        <p style="width:fit-content; margin:0;" id="tp_price">${tp_price}</p>
-        <p style="margin:0;">Jarak: ${tp_distance} pts / ${tp_pips.toFixed(1)} pips</p>
+        <p style="width:fit-content; margin:0;" id="tp_price">${tp.toFixed(5)}</p>
+        <p style="margin:0;">Jarak: ${tpDistance}</p>
         <button style="display:flex; width:fit-content; align-items:flex-start; background-color:blue; color:white; border:none; padding:5px; cursor:pointer; margin-top:0;" onclick="copyText('tp_price')">Copy TP</button>
     </div>
     <p>Lot: ${lot.toFixed(5)}</p>
-    <p>Risiko: $${risiko_usd.toFixed(2)}</p>
+    <p>Risiko: $${riskDollar.toFixed(2)}</p>
   `;
 
-  drawChart(entry, sl_price, tp_price);
+  drawChart(entry, sl, tp);
   saveSettings();
 }
 
