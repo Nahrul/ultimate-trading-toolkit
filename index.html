@@ -201,13 +201,13 @@ function hitung(){
     </div>
     <div style="display:flex; gap:10px;flex-direction: column; margin: 10px 0;">
         <label>Stop Loss:</label>
-        <p style="width:fit-content; margin:0;" id="sl_price">${sl_price.toFixed(2)}</p>
+        <p style="width:fit-content; margin:0;" id="sl_price">${sl_price}</p>
         <p style="margin:0;">Jarak: ${sl_distance} pts / ${sl_pips.toFixed(1)} pips</p>
         <button style="display:flex; width:fit-content; align-items:flex-start; background-color:blue; color:white; border:none; padding:5px; cursor:pointer; margin-top:0;" onclick="copyText('sl_price')">Copy SL</button>
     </div>
     <div style="display:flex; gap:10px; flex-direction: column; margin: 10px 0;">
         <label>Take Profit:</label>
-        <p style="width:fit-content; margin:0;" id="tp_price">${tp_price.toFixed(2)}</p>
+        <p style="width:fit-content; margin:0;" id="tp_price">${tp_price}</p>
         <p style="margin:0;">Jarak: ${tp_distance} pts / ${tp_pips.toFixed(1)} pips</p>
         <button style="display:flex; width:fit-content; align-items:flex-start; background-color:blue; color:white; border:none; padding:5px; cursor:pointer; margin-top:0;" onclick="copyText('tp_price')">Copy TP</button>
     </div>
